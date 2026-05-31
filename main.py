@@ -1,24 +1,43 @@
 import os
 import random
+import sys
+import json
+
 from dotenv import load_dotenv
 from google import genai
 
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_KEY"))
+genModel = "gemini-2.5-flash"
 
 flashCards = []
 
+if os.path.exists("flashcards.json"):
+    with open("flashcards.json", "r") as f:
+        flashCards = json.load(f)
+
 
 def newFlashcard():
+    enableAI = input("Would you like to use AI to make the flashcards? (Y or N)")
 
-    question = input("Enter the question for the flashcard: ")
+    if enableAI.lower() == "y":
+        question = input("Enter the question for the flashcard: ")
 
-    response = client.models.generate_content(
-        model="gemini-3.5-flash", contents=f"{question} in a few words"
-    )
+        response = client.models.generate_content(
+            model=genModel, contents=f"{question} in a few words"
+        )
 
-    flashCards.append({"question": question, "response": response.text})
+        flashCards.append({"question": question, "response": response.text})
+        with open("flashcards.json", "w") as f:
+            json.dump(flashCards, f, indent=2)
+    else:
+        question = input("Enter the question for the flashcard: ")
+
+        response = input("Answer: ")
+        flashCards.append({"question": question, "response": response})
+        with open("flashcards.json", "w") as f:
+            json.dump(flashCards, f, indent=2)
 
 
 def editFlashcard():
@@ -38,13 +57,16 @@ def editFlashcard():
         question = input("Enter the question for the flashcard: ")
 
         response = client.models.generate_content(
-            model="gemini-3.5-flash", contents=f"{question} in a few words"
+            model=genModel, contents=f"{question} in a few words"
         )
 
         del flashCards[flashcardIndex]
         flashCards.insert(
-            {"question": question, "response": response.text}, flashcardIndex
+            flashcardIndex, {"question": question, "response": response.text}
         )
+
+        with open("flashcards.json", "w") as f:
+            json.dump(flashCards, f, indent=2)
 
         print(
             f"Question: {flashCards[flashcardIndex]['question']} Answer: {flashCards[i]['response']} \n Flashcard Edit Complete."
@@ -65,15 +87,20 @@ def deleteFlashcard():
     try:
         flashcardIndex = int(flashcardIndex) - 1
         del flashCards[flashcardIndex]
+
+        with open("flashcards.json", "w") as f:
+            json.dump(flashCards, f, indent=2)
+
     except ValueError:
         print("Flashcard does not exist. Did you type a valid number?")
 
 
 def iterate(aList):
     for i in range(len(aList)):
-        print(f"Question: {flashCards[i]['question']}")
+        print(f"Question: {aList[i]['question']}")
         input("Enter any key to flip card: ")
-        print(f"Answer: {flashCards[i]['response']}")
+        print(f"Answer: {aList[i]['response']}")
+        input("Next card? ")
 
 
 def readFlashcards():
@@ -81,11 +108,19 @@ def readFlashcards():
     randomizeOrder = input("Randomize order? (Enter 'Y') ")
 
     if randomizeOrder.lower() == "y":
-        randomizedFlashcards = random.shuffle(flashCards)
-        iterate(randomizedFlashcards)
-
+        randomizedFlashCards = random.sample(flashCards, k=len(flashCards))
+        iterate(randomizedFlashCards)
     else:
         iterate(flashCards)
+
+
+def quitProgram():
+    sys.exit()
+
+
+def displayList():
+    for i in range(len(flashCards)):
+        print(f"{i}. {flashCards[i]['question']}: {flashCards[i]['response']} \n")
 
 
 appCommands = {
@@ -93,6 +128,8 @@ appCommands = {
     "edit": editFlashcard,
     "delete": deleteFlashcard,
     "read": readFlashcards,
+    "quit": quitProgram,
+    "display": displayList,
 }
 
 while True:
